@@ -32,7 +32,7 @@ print("-----------------------------------")
 #lamb_data = 0.1*2000000/6040
 lamb_data = 33.112582781456953642384105960265
 #Colocado para facilitar a quantidade de utilização por dados que desejo colocar
-multiplier_lamb_data = 1
+multiplier_lamb_data = 7
 #Definindo lamb_data para uma certa utilização
 lamb_data = multiplier_lamb_data*lamb_data
 #Capacidade do canal
@@ -44,9 +44,9 @@ voice_time_gaps = Decimal(0.016)
 #Taxa do tempo de um período de silêncio de canal de voz
 lamb_silence = 1000.0/650.0
 #Número de amostras por rodada
-num_amostras = 1000
+num_amostras = 3000
 #Número de rodadas
-num_rodadas = 1000
+num_rodadas = 100
 #Variavél para definir a existência de interrupção ou não
 withInterruption = False
 #Tamanho da janela de voz
@@ -127,8 +127,8 @@ def mySampleL(prob):
         m = (b+e)/2
         probm = cdf_size(m)
         if(probm == prob): return Decimal(floor(m))
-        elif(prob < probm): e = m-1
-        else: b = m+1
+        elif(prob < probm): e = m-0.1
+        else: b = m+0.1
     return Decimal(floor(b))
 
 def myExpSample(lambd):
@@ -257,13 +257,15 @@ def handleEvent (event) :
             heapq.heappush(heap,service_event)
             #Caso não possa ser interrompido ou haver um pacote de voz
         else:
-            area_1 = area_1 + n_packs1_wait*(event.time-prev_time1)
-            n_packs1_wait = n_packs1_wait+1
-            globaltime = globaltime+event.time-prev_time1
-            prev_time1 = event.time
-
             voice_packet = packets[pid_OnService]
             packet = packets[event.PID]
+
+            if(not (packet.time_wait > 0)):
+                area_1 = area_1 + n_packs1_wait*(event.time-prev_time1)
+                n_packs1_wait = n_packs1_wait+1
+                globaltime = globaltime+event.time-prev_time1
+                prev_time1 = event.time
+
             #O novo tempo de espera do pacote é calculado pela diferença entre o momento que o serviço
             #termina e o momento que ele pede serviço, pois um pacote pode chegar no meio do atendimento 
             #de outro pacote, tendo que esperar apenas o restante do serviço
@@ -274,8 +276,8 @@ def handleEvent (event) :
         return -1
         #EVENTO 4: Chegada de pacote de dados
     elif (event.EID == 4):
-        #packet = Packet(next_pid, event.time, 2, 8*mySampleL(random()))
-        packet = Packet(next_pid, event.time, 2, 6040)
+        packet = Packet(next_pid, event.time, 2, 8*mySampleL(random()))
+        #packet = Packet(next_pid, event.time, 2, 6040)
         packets[next_pid] = packet
         packet_event = Evento(event.time,next_pid,2,5)
         event.time = event.time + myExpSample(lamb_data)
@@ -304,15 +306,16 @@ def handleEvent (event) :
             service_event = Evento(event.time+service_packet.size/data_speed,event.PID,2,7)
             heapq.heappush(heap,service_event)
         else:
-            area_1 = area_1 + n_packs1_wait*(event.time-prev_time1)
-            area_2 = area_2 + n_packs2_wait*(event.time-prev_time2)
-            n_packs2_wait = n_packs2_wait+1
-            globaltime = globaltime+event.time-min([prev_time1,prev_time2])
-            prev_time1 = event.time
-            prev_time2 = event.time
             #Pega o pacote que pediu serviço e o pacote em serviço
             service_packet = packets[pid_OnService]
             packet = packets[event.PID]
+            if(not (packet.time_wait > 0)):
+                area_1 = area_1 + n_packs1_wait*(event.time-prev_time1)
+                area_2 = area_2 + n_packs2_wait*(event.time-prev_time2)
+                n_packs2_wait = n_packs2_wait+1
+                globaltime = globaltime+event.time-min([prev_time1,prev_time2])
+                prev_time1 = event.time
+                prev_time2 = event.time
             #Calcula seu novo tempo de espera conforme explicado antes
             packet.time_wait = packet.time_wait+service_packet.time-packet.time
             packet.time = service_packet.time
